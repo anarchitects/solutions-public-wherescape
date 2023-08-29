@@ -2,12 +2,12 @@ param (
 [Parameter(mandatory=$true)]
 [string]$repo,
 [Parameter(mandatory=$true)]
-[ValidateSet('mcrexport','templateexport')]
+[ValidateSet('mcrexport','templateexport','categoryexport','dtmexport','discoveryexport','profilingexport')]
 [string]$exportType,
 [string]$workingDirectory,
 [string]$ws3dJavaLocation,
 [string]$ws3dJarLocation,
-[switch]$versionMcrExportDirectory
+[switch]$versionExportDirectory
 )
 
 
@@ -21,15 +21,26 @@ $fileTimestamp = ( get-date ).ToString("yyyyMMddTHHmmss")
 if (-not ($workingDirectory)) {$workingDirectory = "C:\temp"}
 $null = if (-not (Test-Path $workingDirectory)) {New-Item $workingDirectory -ItemType "directory"}
 
+#Set the top level directory variable for exports
+if ($versionExportDirectory) {
+    $dirExport = Join-Path -Path $workingDirectory -ChildPath "$exportType_$fileTimestamp"
+}
+else {
+    $dirExport = Join-Path -Path $workingDirectory -ChildPath "$exportType"
+    $null = if (Test-Path $dirExport) {Remove-Item $dirExport -Recurse -Force}
+}
+
 #For the command line based report execution you are required to supply a "selection file" so this variable stores the location of that file, note that it does not need to be timestamped because it is generic
 $fileSelectionXml = Join-Path -Path $workingDirectory -ChildPath "Selection_File.xml"
 
 #Location to store the report containing the items to be exported
-$fileReportCsv = Join-Path -Path $workingDirectory -ChildPath "$exportType_$fileTimestamp.csv"
+$fileReportCsv = Join-Path -Path $workingDirectory -ChildPath $exportType
+$fileReportCsv += "_$fileTimestamp.csv"
 $null = if (Test-Path $fileReportCsv) {Remove-Item $fileReportCsv -Force | Out-Null}
 
 #Location of the log file that any logging will be output to
-$fileLog = Join-Path -Path $workingDirectory -ChildPath "mcr_export_log_$fileTimestamp.txt"
+$fileLog = Join-Path -Path $workingDirectory -ChildPath $exportType
+$fileLog += "_log_$fileTimestamp.txt"
 $null = if (-not (Test-Path $fileLog)) {New-Item $fileLog -ItemType "file" | Out-Null}
 
 #Location of the Java executable as used by 3D, if not supplied then the default install loction is assumed
@@ -74,7 +85,7 @@ if (Test-Path $fileSelectionXml) {
 $null = New-Item $fileSelectionXml -ItemType "file"
 Write-output $selectionFileContent | Out-File -FilePath $fileSelectionXml -Append -Encoding ascii
 
-#Export report containing list of Model Conversions by Group
+#Export report
 #Set the command variable
 $commandReportExport = $3dcmd + ' reportexport -repo ' + $repo + ' -m ' + $fileSelectionXml + ' -n "' + $reportName + '" -o ' + $fileReportCsv
 #Check if the report already exists and remove it if it does
@@ -84,15 +95,6 @@ Invoke-Expression $commandReportExport | Out-Null
 }
 
 if ($exportType -eq "mcrexport") {
-
-#Set the top level directory variable for mcr exports
-if ($versionMcrExportDirectory) {
-    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport_$fileTimestamp"
-}
-else {
-    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport"
-    $null = if (Test-Path $dirExport) {Remove-Item $dirExport -Recurse -Force}
-}
 
 Generate-Report "List Model Conversions"
 
@@ -124,5 +126,149 @@ foreach ($modelConversion in $modelConversions) {
         }            
     
     }
-#End of export type = mcr block
+#End of export type = mcrexport block
+}
+elseif ($exportType -eq "templateexport") {
+
+    Generate-Report "List Templates and Scripts"
+    
+#Loop through report
+#For scripts create directory per type, header type & language
+#For templates create directory per type & header type
+#Create file per template or script
+$templates = Import-CSV $fileReportCsv 
+
+foreach ($template in $templates) {
+
+    $dirLevel1 = Join-Path -Path $dirExport -ChildPath $template.script_or_template
+    $dirLevel2 = Join-Path -Path $dirLevel1 -ChildPath $template.template_header_type
+    $dirLevel3 = Join-Path -Path $dirLevel2 -ChildPath $template.script_language
+
+    if ($template.script_or_template -eq "script") {
+        if (-not (Test-Path $dirLevel3)) {$null = New-Item $dirLevel3 -ItemType "directory"}
+        $fileXml = Join-Path $dirLevel3 -ChildPath $template.template_header_name
+        $fileXml += "_$fileTimestamp.xml"
+    } else {
+        if (-not (Test-Path $dirLevel2)) {$null = New-Item $dirLevel2 -ItemType "directory"}
+        $fileXml = Join-Path $dirLevel2 -ChildPath $template.template_header_name
+        $fileXml += "_$fileTimestamp.xml"
+    }
+
+    if (-not (Test-Path $fileXml)) {
+        $commandTemplateExport = $3dcmd + ' templateexport -repo "' + $repo + '" -name "' + $template.template_header_name + '" -o "' + $fileXml + '"'
+        Invoke-Expression $commandTemplateExport | Out-Null
+        }
+}
+#End of export type = templateexport block
+}
+elseif ($exportType -eq "categoryexport") {
+
+    Generate-Report "List Categories"
+    if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
+
+#Loop through report
+#Create file per model category
+$categories = Import-CSV $fileReportCsv 
+
+foreach ($category in $categories) {
+
+        $fileXml = Join-Path $dirExport -ChildPath $category.obj_cat_id
+        $fileXml += "_$fileTimestamp.xml"
+
+    if (-not (Test-Path $fileXml)) {
+        $commandCategoryExport = $3dcmd + ' categoryexport -repo "' + $repo + '" -c "' + $category.obj_cat_id + '" -o "' + $fileXml + '"'
+        Invoke-Expression $commandCategoryExport | Out-Null
+        }
+}
+#End of export type = categoryexport block
+}
+elseif ($exportType -eq "dtmexport") {
+
+    Generate-Report "List Data Type Mappings"
+    if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
+
+#Loop through report
+#Create file per data type mapping
+$mappings = Import-CSV $fileReportCsv 
+
+foreach ($mapping in $mappings) {
+
+        $fileXml = Join-Path $dirExport -ChildPath $mapping.data_type_mapping_name
+        $fileXml = $fileXml -replace " ","" -replace "\(\*\)",""
+        $fileXml += "_$fileTimestamp.xml"
+
+    if (-not (Test-Path $fileXml)) {
+        $commandDtmExport = $3dcmd + ' dtmexport -repo "' + $repo + '" -name "' + $mapping.data_type_mapping_name + '" -o "' + $fileXml + '"'
+        Invoke-Expression $commandDtmExport | Out-Null
+        }
+}
+#End of export type = dtmexport block
+}
+elseif ($exportType -eq "discoveryexport") {
+
+    #Update the metadata so that ws defined discovery methods can be exported
+    Generate-Report "List Discovery Methods - Step 1"
+
+    #Run the report that returns the list of discovery methods
+    Generate-Report "List Discovery Methods - Step 2"
+    $discoveryMethods = Import-CSV $fileReportCsv 
+
+    #Set the correct export directory
+    if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
+
+    #Loop through report
+    #Create file per data type mapping
+    foreach ($discoveryMethod in $discoveryMethods) {
+
+        $discoveryDirectory = Join-Path $dirExport -ChildPath $discoveryMethod.defined_by
+        if (-not (Test-Path $discoveryDirectory)) {$null = New-Item $discoveryDirectory -ItemType "directory"}
+
+        $discoveryMethodName = $discoveryMethod.method_name -replace " ","_"
+        $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName.Substring(2)
+        $fileXml += "_$fileTimestamp.xml"
+
+        if (-not (Test-Path $fileXml)) {
+            $commandDiscoveryMethodExport = $3dcmd + ' discoveryexport -repo "' + $repo + '" -name "' + $discoveryMethod.method_name + '" -o "' + $fileXml + '"'
+            Invoke-Expression $commandDiscoveryMethodExport | Out-Null
+            }
+    }
+
+    #Update the metadata to reset it to the original values
+    Generate-Report "List Discovery Methods - Step 3"
+
+#End of export type = discoveryexport block
+}
+elseif ($exportType -eq "profilingexport") {
+
+    #Update the metadata so that ws defined profiling methods can be exported
+    Generate-Report "List Profiling Methods - Step 1"
+
+    #Run the report that returns the list of profiling methods
+    Generate-Report "List Profiling Methods - Step 2"
+    $profilingMethods = Import-CSV $fileReportCsv 
+
+    #Set the correct export directory
+    if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
+
+    #Loop through report
+    #Create file per data type mapping
+    foreach ($profilingMethod in $profilingMethods) {
+
+        $profilingDirectory = Join-Path $dirExport -ChildPath $profilingMethod.defined_by
+        if (-not (Test-Path $profilingDirectory)) {$null = New-Item $profilingDirectory -ItemType "directory"}
+
+        $profilingMethodName = $profilingMethod.method_name -replace " ","_"
+        $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName.Substring(2)
+        $fileXml += "_$fileTimestamp.xml"
+
+        if (-not (Test-Path $fileXml)) {
+            $commandprofilingMethodExport = $3dcmd + ' profilingexport -repo "' + $repo + '" -name "' + $profilingMethod.method_name + '" -o "' + $fileXml + '"'
+            Invoke-Expression $commandprofilingMethodExport | Out-Null
+            }
+    }
+
+    #Update the metadata to reset it to the original values
+    Generate-Report "List Profiling Methods - Step 3"
+
+#End of export type = profilingexport block
 }
