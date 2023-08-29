@@ -2,7 +2,7 @@ param (
 [Parameter(mandatory=$true)]
 [string]$repo,
 [Parameter(mandatory=$true)]
-[ValidateSet('mcr')]
+[ValidateSet('mcrexport','templateexport')]
 [string]$exportType,
 [string]$workingDirectory,
 [string]$ws3dJavaLocation,
@@ -42,17 +42,10 @@ if (-not ($ws3dJarLocation)) {$ws3dJarLocation = "C:\Program Files\WhereScape\Wh
 $3dcmd    = '& "' + $ws3dJavaLocation + '" -Xmx512m -XX:MaxMetaspaceSize=256m -splash: -jar "' + $ws3dJarLocation + '\WhereScape-3D-HEAD-bundle.jar"'
 #------------------------------------------------------------------------------
 
-
-if ($exportType -eq "mcr") {
-
-#Set the top level directory variable for mcr exports
-if ($versionMcrExportDirectory) {
-    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport_$fileTimestamp"
-}
-else {
-    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport"
-    $null = if (Test-Path $dirExport) {Remove-Item $dirExport -Recurse -Force}
-}
+function Generate-Report {
+    param (
+        [string]$reportName=$(throw 'A valid report name is required.')
+    )
 
 #Check if the stupid selection file exists and if not then create it with some dummy values that will allow the non version specific report to be run
 $selectionFileContent = @"
@@ -83,11 +76,25 @@ Write-output $selectionFileContent | Out-File -FilePath $fileSelectionXml -Appen
 
 #Export report containing list of Model Conversions by Group
 #Set the command variable
-$commandReportExport = $3dcmd + ' reportexport -repo ' + $repo + ' -m ' + $fileSelectionXml + ' -n "List Model Conversions" -o ' + $fileReportCsv
+$commandReportExport = $3dcmd + ' reportexport -repo ' + $repo + ' -m ' + $fileSelectionXml + ' -n "' + $reportName + '" -o ' + $fileReportCsv
 #Check if the report already exists and remove it if it does
 $null = if (Test-Path $fileReportCsv) {Remove-Item $fileReportCsv -Force}
 #Run the command to output the report
 Invoke-Expression $commandReportExport | Out-Null
+}
+
+if ($exportType -eq "mcrexport") {
+
+#Set the top level directory variable for mcr exports
+if ($versionMcrExportDirectory) {
+    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport_$fileTimestamp"
+}
+else {
+    $dirExport = Join-Path -Path $workingDirectory -ChildPath "mcrExport"
+    $null = if (Test-Path $dirExport) {Remove-Item $dirExport -Recurse -Force}
+}
+
+Generate-Report "List Model Conversions"
 
 #Loop through report
 #Create directory per group
