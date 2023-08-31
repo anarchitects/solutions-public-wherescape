@@ -98,37 +98,33 @@ Invoke-Expression $commandReportExport | Out-Null
 
 if ($exportType -eq "mcrexport") {
 
-Generate-Report "List Model Conversions"
-
-#Loop through report
-#Create directory per group
-#Create file per model conversion
-$modelConversions = Import-CSV $fileReportCsv 
-
-foreach ($modelConversion in $modelConversions) {
+    Generate-Report "List Model Conversions"
     
-        if (-not ($modelConversion.src_transformation_group_name -eq "Default Group")) {
-
-            $dirMcrGroup = Join-Path -Path $dirExport -ChildPath $modelConversion.src_transformation_group_name
-
-            if (-not (Test-Path $dirMcrGroup)) {
-                $null = New-Item $dirMcrGroup -ItemType "directory"
-                }
-
-                $fileXml = Join-Path -Path $dirMcrGroup -ChildPath $modelConversion.src_transformation_name.Replace("/","").Replace("\","")
-                if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
-
-
-            if (-not (Test-Path $fileXml)) {
-                $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileXml + '"'
-
-                Invoke-Expression $commandMcrExport | Out-Null
-
-                }
-        }            
+    #Loop through report
+    #Create directory per group
+    #Create file per model conversion
+    $modelConversions = Import-CSV $fileReportCsv 
     
-    }
-#End of export type = mcrexport block
+    foreach ($modelConversion in $modelConversions) {
+    
+                $dirMcrGroup = Join-Path -Path $dirExport -ChildPath $modelConversion.src_transformation_group_name
+    
+                if (-not (Test-Path $dirMcrGroup)) {
+                    $null = New-Item $dirMcrGroup -ItemType "directory"
+                    }
+    
+                    $fileXml = Join-Path -Path $dirMcrGroup -ChildPath $modelConversion.src_transformation_name.Replace("/","").Replace("\","")
+                    if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+    
+    
+                if (-not (Test-Path $fileXml)) {
+                    $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileXml + '"'
+    
+                    Invoke-Expression $commandMcrExport | Out-Null
+    
+                    }
+        }
+    #End of export type = mcrexport block
 }
 elseif ($exportType -eq "templateexport") {
 
