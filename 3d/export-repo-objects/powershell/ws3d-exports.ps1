@@ -8,7 +8,8 @@ param (
 [string]$ws3dJavaLocation,
 [string]$ws3dJarLocation,
 [switch]$versionExportDirectory,
-[switch]$versionExportFile
+[switch]$versionExportFile,
+[switch]$excludeWsMethods
 )
 
 
@@ -208,14 +209,25 @@ if (-not (Test-Path $fileXml)) {
 }
 elseif ($exportType -eq "discoveryexport") {
 
-    #Update the metadata so that ws defined discovery methods can be exported
-    Generate-Report "List Discovery Methods - Step 1"
+    if (-not ($excludeWsMethods)) {
+        #Update the metadata so that ws defined discovery methods can be exported
+        Generate-Report "List Discovery Methods - Step 1"
+    }
 
     #Run the report that returns the list of discovery methods
     Generate-Report "List Discovery Methods - Step 2"
-    $discoveryMethods = Import-CSV $fileReportCsv 
+        
+    $discoveryMethodsReport = Import-CSV $fileReportCsv
+    $discoveryMethods = New-Object -TypeName "System.Collections.ArrayList"
 
-    #Set the correct export directory
+    foreach ($dm in $discoveryMethodsReport) {
+        if ($excludeWsMethods) {
+            if (($dm.defined_by -eq "user") -and ($dm.method_user_defined -eq "T")) { $discoveryMethods.Add($dm) | Out-Null }
+        } else {
+            $discoveryMethods.Add($dm) | Out-Null
+        }
+    }
+
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
     #Loop through report
@@ -226,28 +238,50 @@ elseif ($exportType -eq "discoveryexport") {
         if (-not (Test-Path $discoveryDirectory)) {$null = New-Item $discoveryDirectory -ItemType "directory"}
 
         $discoveryMethodName = $discoveryMethod.method_name 
-        $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName.Substring(2)
+        if ($discoveryMethodName -like "F-*") {
+            $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName.Substring(2)
+        } else {
+            $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName
+        }
+
+        $filexml = $filexml -replace " ","_"
+
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
         if (-not (Test-Path $fileXml)) {
-            $commandDiscoveryMethodExport = $3dcmd + ' discoveryexport -repo "' + $repo + '" -name "' + $discoveryMethod.method_name + '" -o "' + $fileXml + '"'
+            $commandDiscoveryMethodExport = $3dcmd + ' discoveryexport -repo "' + $repo + '" -name "' + $discoveryMethod.method_name + '" -o "' + $fileXml + '.xml"'
             Invoke-Expression $commandDiscoveryMethodExport | Out-Null
+            #$commandDiscoveryMethodExport
             }
     }
 
-    #Update the metadata to reset it to the original values
-    Generate-Report "List Discovery Methods - Step 3"
+    if (-not ($excludeWsMethods)) {
+        #Update the metadata to reset it to the original values
+        Generate-Report "List Discovery Methods - Step 3"
+    }
 
 #End of export type = discoveryexport block
 }
 elseif ($exportType -eq "profilingexport") {
 
-    #Update the metadata so that ws defined profiling methods can be exported
-    Generate-Report "List Profiling Methods - Step 1"
+    if (-not ($excludeWsMethods)) {
+        #Update the metadata so that ws defined profiling methods can be exported
+        Generate-Report "List Profiling Methods - Step 1"
+    }
 
     #Run the report that returns the list of profiling methods
     Generate-Report "List Profiling Methods - Step 2"
-    $profilingMethods = Import-CSV $fileReportCsv 
+
+    $profilingMethodsReport = Import-CSV $fileReportCsv
+    $profilingMethods = New-Object -TypeName "System.Collections.ArrayList"
+
+    foreach ($pm in $profilingMethodsReport) {
+        if ($excludeWsMethods) {
+            if (($pm.defined_by -eq "user") -and ($pm.method_user_defined -eq "T")) { $profilingMethods.Add($pm) | Out-Null }
+        } else {
+            $profilingMethods.Add($pm) | Out-Null
+        }
+    }
 
     #Set the correct export directory
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
@@ -260,17 +294,26 @@ elseif ($exportType -eq "profilingexport") {
         if (-not (Test-Path $profilingDirectory)) {$null = New-Item $profilingDirectory -ItemType "directory"}
 
         $profilingMethodName = $profilingMethod.method_name 
-        $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName.Substring(2)
+        if ($profilingMethodName -like "F-*") {
+            $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName.Substring(2)
+         } else {
+            $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName
+         }
+
+         $fileXml = $fileXml -replace " ","_"
+
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
         if (-not (Test-Path $fileXml)) {
-            $commandprofilingMethodExport = $3dcmd + ' profilingexport -repo "' + $repo + '" -name "' + $profilingMethod.method_name + '" -o "' + $fileXml + '"'
+            $commandprofilingMethodExport = $3dcmd + ' profilingexport -repo "' + $repo + '" -name "' + $profilingMethod.method_name + '" -o "' + $fileXml + '.xml"'
             Invoke-Expression $commandprofilingMethodExport | Out-Null
             }
     }
 
-    #Update the metadata to reset it to the original values
-    Generate-Report "List Profiling Methods - Step 3"
+    if (-not ($excludeWsMethods)) {
+        #Update the metadata to reset it to the original values
+        Generate-Report "List Profiling Methods - Step 3"
+    }
 
 #End of export type = profilingexport block
 }
