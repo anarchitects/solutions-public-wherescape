@@ -119,7 +119,7 @@ if ($exportType -eq "mcrexport") {
     
     
                 if (-not (Test-Path $fileXml)) {
-                    $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileXml + '"'
+                    $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileXml + '.xml"'
     
                     Invoke-Expression $commandMcrExport | Out-Null
     
@@ -154,7 +154,7 @@ foreach ($template in $templates) {
     }
 
     if (-not (Test-Path $fileXml)) {
-        $commandTemplateExport = $3dcmd + ' templateexport -repo "' + $repo + '" -name "' + $template.template_header_name + '" -o "' + $fileXml + '"'
+        $commandTemplateExport = $3dcmd + ' templateexport -repo "' + $repo + '" -name "' + $template.template_header_name + '" -o "' + $fileXml + '.xml"'
         Invoke-Expression $commandTemplateExport | Out-Null
         }
 }
@@ -175,7 +175,7 @@ foreach ($category in $categories) {
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
     if (-not (Test-Path $fileXml)) {
-        $commandCategoryExport = $3dcmd + ' categoryexport -repo "' + $repo + '" -c "' + $category.obj_cat_id + '" -o "' + $fileXml + '"'
+        $commandCategoryExport = $3dcmd + ' categoryexport -repo "' + $repo + '" -c "' + $category.obj_cat_id + '" -o "' + $fileXml + '.xml"'
         Invoke-Expression $commandCategoryExport | Out-Null
         }
 }
@@ -201,7 +201,7 @@ foreach ($mapping in $mappings) {
     if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
 if (-not (Test-Path $fileXml)) {
-    $commandDtmExport = $3dcmd + ' dtmexport -repo "' + $repo + '" -name "' + $mapping.data_type_mapping_name + '" -o "' + $fileXml + '"'
+    $commandDtmExport = $3dcmd + ' dtmexport -repo "' + $repo + '" -name "' + $mapping.data_type_mapping_name + '" -o "' + $fileXml + '.xml"'
     Invoke-Expression $commandDtmExport | Out-Null
     }
 }
@@ -339,7 +339,7 @@ elseif ($exportType -eq "functionsexport") {
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
         if (-not (Test-Path $fileXml)) {
-            $commandDatabaseFunctionsExport = $3dcmd + ' functionsexport -repo "' + $repo + '" -name "' + $databaseFunction.functions_name + '" -o "' + $fileXml + '"'
+            $commandDatabaseFunctionsExport = $3dcmd + ' functionsexport -repo "' + $repo + '" -name "' + $databaseFunction.functions_name + '" -o "' + $fileXml + '.xml"'
             Invoke-Expression $commandDatabaseFunctionsExport | Out-Null
             }
     }
@@ -368,7 +368,7 @@ elseif ($exportType -eq "uiconfigexport") {
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
         if (-not (Test-Path $fileXml)) {
-            $commandUiConfigsExport = $3dcmd + ' uiconfigexport -repo "' + $repo + '" -name "' + $uiConfig.ui_config_name + '" -o "' + $fileXml + '"'
+            $commandUiConfigsExport = $3dcmd + ' uiconfigexport -repo "' + $repo + '" -name "' + $uiConfig.ui_config_name + '" -o "' + $fileXml + '.xml"'
             Invoke-Expression $commandUiConfigsExport | Out-Null
             }
     }
@@ -391,7 +391,7 @@ foreach ($workflow in $workflows) {
         if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
 
     if (-not (Test-Path $fileXml)) {
-        $commandworkflowExport = $3dcmd + ' workflowexport -repo "' + $repo + '" -name "' + $workflow.workflow_name + '" -o "' + $fileXml + '"'
+        $commandworkflowExport = $3dcmd + ' workflowexport -repo "' + $repo + '" -name "' + $workflow.workflow_name + '" -o "' + $fileXml + '.xml"'
         Invoke-Expression $commandworkflowExport | Out-Null
         }
 }
