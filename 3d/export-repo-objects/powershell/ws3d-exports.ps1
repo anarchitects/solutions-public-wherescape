@@ -4,6 +4,7 @@ param (
 [Parameter(mandatory=$true)]
 [ValidateSet('mcrexport','templateexport','categoryexport','dtmexport','discoveryexport','profilingexport','functionsexport','uiconfigexport','workflowexport')]
 [string]$exportType,
+[string]$dsn,
 [string]$workingDirectory,
 [string]$ws3dJavaLocation,
 [string]$ws3dJarLocation,
@@ -12,7 +13,7 @@ param (
 [switch]$excludeWsMethods
 )
 
-
+Import-Module -Name $PSScriptRoot\ws3d-exports-queries.psm1 -Force
 #------------------------------------------------------------------------------
 # Global script variables
 #------------------------------------------------------------------------------
@@ -99,13 +100,16 @@ Invoke-Expression $commandReportExport | Out-Null
 
 if ($exportType -eq "mcrexport") {
 
-    Generate-Report "List Model Conversions"
-    
+    if ($dsn) {
+        $modelConversions = Get-ODBCData -query $listModelConversions -dsn $dsn
+    } else {
+        Generate-Report "List Model Conversions"
+        $modelConversions = Import-CSV $fileReportCsv 
+    }
+
     #Loop through report
     #Create directory per group
     #Create file per model conversion
-    $modelConversions = Import-CSV $fileReportCsv 
-    
     foreach ($modelConversion in $modelConversions) {
     
                 $dirMcrGroup = Join-Path -Path $dirExport -ChildPath $modelConversion.src_transformation_group_name
@@ -114,12 +118,12 @@ if ($exportType -eq "mcrexport") {
                     $null = New-Item $dirMcrGroup -ItemType "directory"
                     }
     
-                    $fileXml = Join-Path -Path $dirMcrGroup -ChildPath $modelConversion.src_transformation_name.Replace("/","").Replace("\","")
-                    if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+                    $fileExport = Join-Path -Path $dirMcrGroup -ChildPath $modelConversion.src_transformation_name.Replace("/","").Replace("\","")
+                    if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
     
     
-                if (-not (Test-Path $fileXml)) {
-                    $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileXml + '.xml"'
+                if (-not (Test-Path $fileExport)) {
+                    $commandMcrExport = $3dcmd + ' mcrexport -repo "' + $repo + '" -name "' + $modelConversion.src_transformation_name + '" -o "' + $fileExport + '.xml"'
     
                     Invoke-Expression $commandMcrExport | Out-Null
     
@@ -129,95 +133,115 @@ if ($exportType -eq "mcrexport") {
 }
 elseif ($exportType -eq "templateexport") {
 
-    Generate-Report "List Templates and Scripts"
-    
-#Loop through report
-#For scripts create directory per type, header type & language
-#For templates create directory per type & header type
-#Create file per template or script
-$templates = Import-CSV $fileReportCsv 
-
-foreach ($template in $templates) {
-
-    $dirLevel1 = Join-Path -Path $dirExport -ChildPath $template.script_or_template
-    $dirLevel2 = Join-Path -Path $dirLevel1 -ChildPath $template.template_header_type
-    $dirLevel3 = Join-Path -Path $dirLevel2 -ChildPath $template.script_language
-
-    if ($template.script_or_template -eq "script") {
-        if (-not (Test-Path $dirLevel3)) {$null = New-Item $dirLevel3 -ItemType "directory"}
-        $fileXml = Join-Path $dirLevel3 -ChildPath $template.template_header_name
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+    if ($dsn) {
+        $templates = Get-ODBCData -query $ListTemplatesandScripts -dsn $dsn
     } else {
-        if (-not (Test-Path $dirLevel2)) {$null = New-Item $dirLevel2 -ItemType "directory"}
-        $fileXml = Join-Path $dirLevel2 -ChildPath $template.template_header_name
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+        Generate-Report "List Templates and Scripts"
+        $templates = Import-CSV $fileReportCsv 
     }
 
-    if (-not (Test-Path $fileXml)) {
-        $commandTemplateExport = $3dcmd + ' templateexport -repo "' + $repo + '" -name "' + $template.template_header_name + '" -o "' + $fileXml + '.xml"'
-        Invoke-Expression $commandTemplateExport | Out-Null
+    #Loop through results
+    #For scripts create directory per type, header type & language
+    #For templates create directory per type & header type
+    #Create file per template or script
+    foreach ($template in $templates) {
+
+        $dirLevel1 = Join-Path -Path $dirExport -ChildPath $template.script_or_template
+        $dirLevel2 = Join-Path -Path $dirLevel1 -ChildPath $template.template_header_type
+        $dirLevel3 = Join-Path -Path $dirLevel2 -ChildPath $template.script_language
+
+        if ($template.script_or_template -eq "script") {
+            if (-not (Test-Path $dirLevel3)) {$null = New-Item $dirLevel3 -ItemType "directory"}
+            $fileExport = Join-Path $dirLevel3 -ChildPath $template.template_header_name
+            if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
+        } else {
+            if (-not (Test-Path $dirLevel2)) {$null = New-Item $dirLevel2 -ItemType "directory"}
+            $fileExport = Join-Path $dirLevel2 -ChildPath $template.template_header_name
+            if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
         }
-}
+
+        if (-not (Test-Path $fileExport)) {
+            $commandTemplateExport = $3dcmd + ' templateexport -repo "' + $repo + '" -name "' + $template.template_header_name + '" -o "' + $fileExport + '.xml"'
+            Invoke-Expression $commandTemplateExport | Out-Null
+            }
+    }
 #End of export type = templateexport block
 }
 elseif ($exportType -eq "categoryexport") {
 
-    Generate-Report "List Categories"
+    if ($dsn) {
+        $categories = Get-ODBCData -query $listCategories -dsn $dsn
+    } else {
+        Generate-Report "List Categories"
+        $categories = Import-CSV $fileReportCsv 
+    }
+
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
+    
+    #Loop through report
+    #Create file per model category
+    foreach ($category in $categories) {
 
-#Loop through report
-#Create file per model category
-$categories = Import-CSV $fileReportCsv 
+            $fileExport = Join-Path $dirExport -ChildPath $category.obj_cat_id
+            if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-foreach ($category in $categories) {
-
-        $fileXml = Join-Path $dirExport -ChildPath $category.obj_cat_id
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
-
-    if (-not (Test-Path $fileXml)) {
-        $commandCategoryExport = $3dcmd + ' categoryexport -repo "' + $repo + '" -c "' + $category.obj_cat_id + '" -o "' + $fileXml + '.xml"'
-        Invoke-Expression $commandCategoryExport | Out-Null
-        }
-}
+        if (-not (Test-Path $fileExport)) {
+            $commandCategoryExport = $3dcmd + ' categoryexport -repo "' + $repo + '" -c "' + $category.obj_cat_id + '" -o "' + $fileExport + '.xml"'
+            Invoke-Expression $commandCategoryExport | Out-Null
+            }
+    }
 #End of export type = categoryexport block
 }
 elseif ($exportType -eq "dtmexport") {
 
-    Generate-Report "List Data Type Mappings"
+    if ($dsn) {
+        $mappings = Get-ODBCData -query $listDataTypeMappings -dsn $dsn
+    } else {
+        Generate-Report "List Data Type Mappings"
+        $mappings = Import-CSV $fileReportCsv 
+    }
+
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
-#Loop through report
-#Create directory per from database
-#Create file per data type mapping
-$mappings = Import-CSV $fileReportCsv 
+    #Loop through report
+    #Create directory per from database
+    #Create file per data type mapping
+    foreach ($mapping in $mappings) {
 
-foreach ($mapping in $mappings) {
+        $dirDtmFrom = Join-Path -Path $dirExport -ChildPath $mapping.data_type_mapping_from_db_name
+        if (-not (Test-Path $dirDtmFrom)) {$null = New-Item $dirDtmFrom -ItemType "directory"}
 
-    $dirDtmFrom = Join-Path -Path $dirExport -ChildPath $mapping.data_type_mapping_from_db_name
-    if (-not (Test-Path $dirDtmFrom)) {$null = New-Item $dirDtmFrom -ItemType "directory"}
+        $fileExport = Join-Path $dirDtmFrom -ChildPath $mapping.data_type_mapping_name
+        $fileExport = $fileExport -replace "\(\*\)","AllVersions"
+        if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-    $fileXml = Join-Path $dirDtmFrom -ChildPath $mapping.data_type_mapping_name
-    $fileXml = $fileXml -replace "\(\*\)","AllVersions"
-    if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
-
-if (-not (Test-Path $fileXml)) {
-    $commandDtmExport = $3dcmd + ' dtmexport -repo "' + $repo + '" -name "' + $mapping.data_type_mapping_name + '" -o "' + $fileXml + '.xml"'
-    Invoke-Expression $commandDtmExport | Out-Null
+    if (-not (Test-Path $fileExport)) {
+        $commandDtmExport = $3dcmd + ' dtmexport -repo "' + $repo + '" -name "' + $mapping.data_type_mapping_name + '" -o "' + $fileExport + '.xml"'
+        Invoke-Expression $commandDtmExport | Out-Null
+        }
     }
-}
 #End of export type = dtmexport block
 }
 elseif ($exportType -eq "discoveryexport") {
 
     if (-not ($excludeWsMethods)) {
-        #Update the metadata so that ws defined discovery methods can be exported
-        Generate-Report "List Discovery Methods - Step 1"
+        if ($dsn) {
+            $null = Set-ODBCData -query $listDiscoveryMethodsStep1 -dsn $dsn
+        } else {
+            #Update the metadata so that ws defined discovery methods can be exported
+            Generate-Report "List Discovery Methods - Step 1"
+        }
     }
 
-    #Run the report that returns the list of discovery methods
-    Generate-Report "List Discovery Methods - Step 2"
-        
-    $discoveryMethodsReport = Import-CSV $fileReportCsv
+    if ($dsn) {
+        $discoveryMethodsReport = Get-ODBCData -query $listDiscoveryMethodsStep2 -dsn $dsn
+    } else {
+        #Run the report that returns the list of discovery methods
+        Generate-Report "List Discovery Methods - Step 2"
+        $discoveryMethodsReport = Import-CSV $fileReportCsv
+    }
+    
+    #Create and populate a new iterable array 
     $discoveryMethods = New-Object -TypeName "System.Collections.ArrayList"
 
     foreach ($dm in $discoveryMethodsReport) {
@@ -230,7 +254,7 @@ elseif ($exportType -eq "discoveryexport") {
 
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
-    #Loop through report
+    #Loop through results
     #Create file per data type mapping
     foreach ($discoveryMethod in $discoveryMethods) {
 
@@ -239,25 +263,29 @@ elseif ($exportType -eq "discoveryexport") {
 
         $discoveryMethodName = $discoveryMethod.method_name 
         if ($discoveryMethodName -like "F-*") {
-            $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName.Substring(2)
+            $fileExport = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName.Substring(2)
         } else {
-            $fileXml = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName
+            $fileExport = Join-Path $discoveryDirectory -ChildPath $discoveryMethodName
         }
 
-        $filexml = $filexml -replace " ","_"
+        $fileExport = $fileExport -replace " ","_"
 
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+        if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-        if (-not (Test-Path $fileXml)) {
-            $commandDiscoveryMethodExport = $3dcmd + ' discoveryexport -repo "' + $repo + '" -name "' + $discoveryMethod.method_name + '" -o "' + $fileXml + '.xml"'
+        if (-not (Test-Path $fileExport)) {
+            $commandDiscoveryMethodExport = $3dcmd + ' discoveryexport -repo "' + $repo + '" -name "' + $discoveryMethod.method_name + '" -o "' + $fileExport + '.xml"'
             Invoke-Expression $commandDiscoveryMethodExport | Out-Null
             #$commandDiscoveryMethodExport
             }
     }
 
     if (-not ($excludeWsMethods)) {
-        #Update the metadata to reset it to the original values
-        Generate-Report "List Discovery Methods - Step 3"
+        if ($dsn) {
+            $null = Set-ODBCData -query $listDiscoveryMethodsStep3 -dsn $dsn
+        } else {
+            #Update the metadata to reset it to the original values
+            Generate-Report "List Discovery Methods - Step 3"
+        }
     }
 
 #End of export type = discoveryexport block
@@ -265,14 +293,22 @@ elseif ($exportType -eq "discoveryexport") {
 elseif ($exportType -eq "profilingexport") {
 
     if (-not ($excludeWsMethods)) {
-        #Update the metadata so that ws defined profiling methods can be exported
-        Generate-Report "List Profiling Methods - Step 1"
+        if ($dsn) {
+            $null = Set-ODBCData -query $listProfilingMethodsStep1 -dsn $dsn
+        } else {
+            #Update the metadata so that ws defined profiling methods can be exported
+            Generate-Report "List Profiling Methods - Step 1"
+        }
     }
 
-    #Run the report that returns the list of profiling methods
-    Generate-Report "List Profiling Methods - Step 2"
+    if ($dsn) {
+        $profilingMethodsReport = Get-ODBCData -query $listProfilingMethodsStep2 -dsn $dsn
+    } else {
+        #Run the report that returns the list of profiling methods
+        Generate-Report "List Profiling Methods - Step 2"
+        $profilingMethodsReport = Import-CSV $fileReportCsv
+    }
 
-    $profilingMethodsReport = Import-CSV $fileReportCsv
     $profilingMethods = New-Object -TypeName "System.Collections.ArrayList"
 
     foreach ($pm in $profilingMethodsReport) {
@@ -295,34 +331,42 @@ elseif ($exportType -eq "profilingexport") {
 
         $profilingMethodName = $profilingMethod.method_name 
         if ($profilingMethodName -like "F-*") {
-            $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName.Substring(2)
+            $fileExport = Join-Path $profilingDirectory -ChildPath $profilingMethodName.Substring(2)
          } else {
-            $fileXml = Join-Path $profilingDirectory -ChildPath $profilingMethodName
+            $fileExport = Join-Path $profilingDirectory -ChildPath $profilingMethodName
          }
 
-         $fileXml = $fileXml -replace " ","_"
+         $fileExport = $fileExport -replace " ","_"
 
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+        if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-        if (-not (Test-Path $fileXml)) {
-            $commandprofilingMethodExport = $3dcmd + ' profilingexport -repo "' + $repo + '" -name "' + $profilingMethod.method_name + '" -o "' + $fileXml + '.xml"'
+        if (-not (Test-Path $fileExport)) {
+            $commandprofilingMethodExport = $3dcmd + ' profilingexport -repo "' + $repo + '" -name "' + $profilingMethod.method_name + '" -o "' + $fileExport + '.xml"'
             Invoke-Expression $commandprofilingMethodExport | Out-Null
             }
     }
 
     if (-not ($excludeWsMethods)) {
-        #Update the metadata to reset it to the original values
-        Generate-Report "List Profiling Methods - Step 3"
+        if ($dsn) {
+            $null = Set-ODBCData -query $listProfilingMethodsStep3 -dsn $dsn
+        } else {
+            #Update the metadata to reset it to the original values
+            Generate-Report "List Profiling Methods - Step 3"
+        }
     }
 
 #End of export type = profilingexport block
 }
 elseif ($exportType -eq "functionsexport") {
 
-    #Run the report that returns the list of database functions
-    Generate-Report "List Database Functions"
-    $databaseFunctions = Import-CSV $fileReportCsv 
-
+    if ($dsn) {
+        $databaseFunctions = Get-ODBCData -query $listDatabaseFunctions -dsn $dsn
+    } else {
+        #Run the report that returns the list of database functions
+        Generate-Report "List Database Functions"
+        $databaseFunctions = Import-CSV $fileReportCsv
+    }
+     
     #Set the correct export directory
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
@@ -335,11 +379,11 @@ elseif ($exportType -eq "functionsexport") {
         if (-not (Test-Path $functionsDirectory)) {$null = New-Item $functionsDirectory -ItemType "directory"}
 
         $databaseFunctionName = $databaseFunction.functions_name 
-        $fileXml = Join-Path $functionsDirectory -ChildPath $databaseFunctionName
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+        $fileExport = Join-Path $functionsDirectory -ChildPath $databaseFunctionName
+        if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-        if (-not (Test-Path $fileXml)) {
-            $commandDatabaseFunctionsExport = $3dcmd + ' functionsexport -repo "' + $repo + '" -name "' + $databaseFunction.functions_name + '" -o "' + $fileXml + '.xml"'
+        if (-not (Test-Path $fileExport)) {
+            $commandDatabaseFunctionsExport = $3dcmd + ' functionsexport -repo "' + $repo + '" -name "' + $databaseFunction.functions_name + '" -o "' + $fileExport + '.xml"'
             Invoke-Expression $commandDatabaseFunctionsExport | Out-Null
             }
     }
@@ -348,10 +392,14 @@ elseif ($exportType -eq "functionsexport") {
 }
 elseif ($exportType -eq "uiconfigexport") {
 
-    #Run the report that returns the list of database functions
-    Generate-Report "List UI Configs"
-    $uiConfigs = Import-CSV $fileReportCsv 
-
+    if ($dsn) {
+        $uiConfigs = Get-ODBCData -query $listUIConfigs -dsn $dsn
+    } else {
+        #Run the report that returns the list of database functions
+        Generate-Report "List UI Configs"
+        $uiConfigs = Import-CSV $fileReportCsv 
+    }
+    
     #Set the correct export directory
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
@@ -364,11 +412,11 @@ elseif ($exportType -eq "uiconfigexport") {
         if (-not (Test-Path $uiConfigsDirectory)) {$null = New-Item $uiConfigsDirectory -ItemType "directory"}
 
         $uiConfigName = $uiConfig.ui_config_name 
-        $fileXml = Join-Path $uiConfigsDirectory -ChildPath $uiConfigName
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
+        $fileExport = Join-Path $uiConfigsDirectory -ChildPath $uiConfigName
+        if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-        if (-not (Test-Path $fileXml)) {
-            $commandUiConfigsExport = $3dcmd + ' uiconfigexport -repo "' + $repo + '" -name "' + $uiConfig.ui_config_name + '" -o "' + $fileXml + '.xml"'
+        if (-not (Test-Path $fileExport)) {
+            $commandUiConfigsExport = $3dcmd + ' uiconfigexport -repo "' + $repo + '" -name "' + $uiConfig.ui_config_name + '" -o "' + $fileExport + '.uiconfig"'
             Invoke-Expression $commandUiConfigsExport | Out-Null
             }
     }
@@ -377,23 +425,28 @@ elseif ($exportType -eq "uiconfigexport") {
 }
 elseif ($exportType -eq "workflowexport") {
 
-    Generate-Report "List Workflows"
+    if ($dsn) {
+        $workflows = Get-ODBCData -query $listWorkflows -dsn $dsn
+    } else {
+        #Run the report that returns the list of configured workflows
+        Generate-Report "List Workflows"
+        $workflows = Import-CSV $fileReportCsv
+    }
+    
     if (-not (Test-Path $dirExport)) {$null = New-Item $dirExport -ItemType "directory"}
 
-#Loop through report
-#Create file per workflow
-$workflows = Import-CSV $fileReportCsv 
+    #Loop through report
+    #Create file per workflow
+    foreach ($workflow in $workflows) {
 
-foreach ($workflow in $workflows) {
+            $fileExport = Join-Path $dirExport -ChildPath $workflow.workflow_name
+            $fileExport = $fileExport -replace " ",""
+            if ($versionExportFile) {$fileExport += "_$fileTimestamp.xml"}
 
-        $fileXml = Join-Path $dirExport -ChildPath $workflow.workflow_name
-        $fileXml = $fileXml -replace " ",""
-        if ($versionExportFile) {$fileXml += "_$fileTimestamp.xml"}
-
-    if (-not (Test-Path $fileXml)) {
-        $commandworkflowExport = $3dcmd + ' workflowexport -repo "' + $repo + '" -name "' + $workflow.workflow_name + '" -o "' + $fileXml + '.xml"'
-        Invoke-Expression $commandworkflowExport | Out-Null
-        }
-}
+        if (-not (Test-Path $fileExport)) {
+            $commandworkflowExport = $3dcmd + ' workflowexport -repo "' + $repo + '" -name "' + $workflow.workflow_name + '" -o "' + $fileExport + '.xml"'
+            Invoke-Expression $commandworkflowExport | Out-File -FilePath $fileLog -Append
+            }
+    }
 #End of export type = workflowexport block
 }
