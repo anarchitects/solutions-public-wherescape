@@ -1,0 +1,25 @@
+{
+    "MetadataLoginArgs":
+    [
+        {
+            "--meta-dsn": "wsredrepo",
+            "--meta-dsn-arch": "64",
+            "--meta-user-name": "",
+            "--meta-password": "",
+            "--meta-database": "",
+            "--td-wallet": "",
+            "--dimension-space": "",
+            "--index-space": "",
+            "--meta-space": "",
+            "--meta-index-space": ""
+        }
+    ],
+    "CommonArgs":
+    [
+        {
+            "-c": "",
+            "-o": "human",
+            "-l": ""
+        }
+    ]
+}
