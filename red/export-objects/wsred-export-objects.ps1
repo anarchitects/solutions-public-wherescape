@@ -1,6 +1,6 @@
 param (
 [Parameter(mandatory=$true)]
-[ValidateSet('dfs','dtm','ext-prop-definition')]
+[ValidateSet('dfs','dtm','ext-prop-definition','script-lang-definition','options','parameter')]
 [string]$exportType,
 [string]$dsn,
 [string]$workingDirectory,
@@ -72,13 +72,35 @@ switch ($exportType) {
             }
         }
     }
+    "options" {
+        $fileExport = Join-Path -Path $dirExport -ChildPath $exportType
+        $fileExport += ".xml"
+        $exportCommand = Write-RedcliCommand -redcliLocation $redcliLocation -command $exportType -subCommand export
+        $exportCommand = ($exportCommand -replace "human","xml") + ' -f "' + $fileExport + '"'
+        Invoke-Expression $exportCommand | Out-File $fileLog -Append
+    }
+    "parameter" {
+        $fileExport = Join-Path -Path $dirExport -ChildPath $exportType
+        $fileExport += ".txt"
+        $exportCommand = Write-RedcliCommand -redcliLocation $redcliLocation -command $exportType -subCommand list-all
+        $exportResult = Invoke-Expression $exportCommand
+        Format-Human $exportResult | Out-File $fileExport -Append
+    }
     "ext-prop-definition" {
-                $fileExport = Join-Path -Path $dirExport -ChildPath $exportType
-                $fileExport += ".json"
-                $exportCommand = Write-RedcliCommand -redcliLocation $redcliLocation -command $exportType -subCommand export
-                $exportCommand = ($exportCommand -replace "human","json") + ' -f "' + $fileExport + '"'
-                Invoke-Expression $exportCommand | Out-File $fileLog -Append
-                (Get-Content -Path $fileExport) | Format-Json -exportType $exportType | Set-Content -Path $fileExport
-                # $exportCommand
-            }
-        }
+        $fileExport = Join-Path -Path $dirExport -ChildPath $exportType
+        $fileExport += ".json"
+        $exportCommand = Write-RedcliCommand -redcliLocation $redcliLocation -command $exportType -subCommand export
+        $exportCommand = ($exportCommand -replace "human","json") + ' -f "' + $fileExport + '"'
+        Invoke-Expression $exportCommand | Out-File $fileLog -Append
+        (Get-Content -Path $fileExport) | Format-Json -exportType $exportType | Set-Content -Path $fileExport
+    }
+    "script-lang-definition" {
+            $fileExport = Join-Path -Path $dirExport -ChildPath $exportType
+            $fileExport += ".json"
+            $exportCommand = Write-RedcliCommand -redcliLocation $redcliLocation -command $exportType -subCommand export
+            $exportCommand = ($exportCommand -replace "human","json") + ' -f "' + $fileExport + '"'
+            Invoke-Expression $exportCommand | Out-File $fileLog -Append
+            (Get-Content -Path $fileExport) | Format-Json -exportType $exportType | Set-Content -Path $fileExport
+    }
+    default {"Wrong switch value supplied"; break}
+}

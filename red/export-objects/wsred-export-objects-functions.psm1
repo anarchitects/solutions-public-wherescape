@@ -53,11 +53,49 @@ function Format-Json {
             $formattedJson = $formattedJson -replace '"scopes"',$scopesReplace
             $variableNameReplace = "`n" + '"variableName"'
             $formattedJson = $formattedJson -replace '"variableName"',$variableNameReplace
+            $separatorReplace = "`n" + '},{'
+            $formattedJson = $formattedJson -replace '},{',$separatorReplace
             $fileFormatReplace = "`n" + '"fileFormat"'
             $formattedJson = $formattedJson -replace '"fileFormat"',$fileFormatReplace       
-    }
+        }
+        "script-lang-definition" {
+            $definitionsReplace = "`n" + '"definitions"'
+            $formattedJson = $json -replace '"definitions"',$definitionsReplace
+            $commandReplace = "`n" + '"command"'
+            $formattedJson = $formattedJson -replace '"command"',$commandReplace
+            $descriptionReplace = "`n" + '"description"'
+            $formattedJson = $formattedJson -replace '"description"',$descriptionReplace
+            $fileExtensionReplace = "`n" + '"fileExtension"'
+            $formattedJson = $formattedJson -replace '"fileExtension"',$fileExtensionReplace
+            $nameReplace = "`n" + '"name"'
+            $formattedJson = $formattedJson -replace '"name"',$nameReplace
+            $separatorReplace = "`n" + '},{'
+            $formattedJson = $formattedJson -replace '},{',$separatorReplace
+            $fileFormatReplace = "`n" + '"fileFormat"'
+            $formattedJson = $formattedJson -replace '"fileFormat"',$fileFormatReplace       
+        }
     default {"Wrong switch value supplied"; break}
     }
 
     $formattedJson
+}
+
+Function Format-Human {
+    param(
+        $result
+    )
+
+$output = @"
+"@
+
+    foreach ($line in $result) {
+        if ($line -like "*Name:*") {
+            $newLine = $line -replace "Name: ",""
+            $newLine = $newLine -replace " -> Value: \[\(empty\)\]",""
+            $newLine = $newLine -replace " -> Value: \[",': "'
+            $newLine = $newLine -replace "\]",'"'
+            $output += $newLine + "`n"
+        }
+    }
+    $output
 }
